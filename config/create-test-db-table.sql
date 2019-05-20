@@ -1,0 +1,9 @@
+CREATE DATABASE IF NOT EXISTS `interview`;
+USE `interview`;
+CREATE TABLE IF NOT EXISTS `interview`.`test` (
+	`id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`client_id` BIGINT(20) UNSIGNED,
+	`line_number` BIGINT(20) UNSIGNED,
+	PRIMARY KEY (`id`)
+) ENGINE=INNODB DEFAULT CHARSET=utf8;
+TRUNCATE TABLE `interview`.`test`;
