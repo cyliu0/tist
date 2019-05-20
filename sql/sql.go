@@ -2,10 +2,10 @@ package sql
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/cyliu0/tist/matrix"
 	"github.com/sirupsen/logrus"
@@ -16,6 +16,7 @@ type SQLMatrix struct {
 }
 
 func NewSQLMatrix(sqlFilePrefix, sqlFilePostfix string, clientNumber int) (sqlMatrix *SQLMatrix, err error) {
+	sqlMatrix = &SQLMatrix{}
 	mtx := make([][]interface{}, clientNumber)
 	fileNames := getSQLFileNames(sqlFilePrefix, sqlFilePostfix, clientNumber)
 	for i, fileName := range fileNames {
@@ -32,9 +33,8 @@ func NewSQLMatrix(sqlFilePrefix, sqlFilePostfix string, clientNumber int) (sqlMa
 	sqlMatrix.PermutateMatrix, err = matrix.NewPermutateMatrix(mtx)
 	if err != nil {
 		logrus.Errorf("Failed to new permutate matrix, err: %v", err)
-		return
 	}
-	return
+	return sqlMatrix, err
 }
 
 func getSQLFileNames(sqlFilePrefix, sqlFilePostfix string, clientNumber int) []string {
@@ -45,29 +45,26 @@ func getSQLFileNames(sqlFilePrefix, sqlFilePostfix string, clientNumber int) []s
 	return fileNames
 }
 
-func readLines(path string) (lines []string, err error) {
-	var (
-		file   *os.File
-		part   []byte
-		prefix bool
-	)
-	if file, err = os.Open(path); err != nil {
+func readLines(fileName string) (lines []string, err error) {
+	lines = make([]string, 0)
+	f, err := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		logrus.Errorf("open file error: %v", err)
 		return
 	}
-	reader := bufio.NewReader(file)
-	buffer := bytes.NewBuffer(make([]byte, 1024))
+	defer f.Close()
+	rd := bufio.NewReader(f)
 	for {
-		if part, prefix, err = reader.ReadLine(); err != nil {
-			break
+		line, err := rd.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			logrus.Errorf("read file line error: %v", err)
+			return nil, err
 		}
-		buffer.Write(part)
-		if !prefix {
-			lines = append(lines, buffer.String())
-			buffer.Reset()
-		}
-	}
-	if err == io.EOF {
-		err = nil
+		line = strings.TrimRight(line, "\n")
+		lines = append(lines, line)
 	}
 	return
 }

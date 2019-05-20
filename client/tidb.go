@@ -1,12 +1,12 @@
 package client
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +17,7 @@ type TiDB struct {
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
-	db       *sqlx.DB
+	db       *sql.DB
 }
 
 func (t *TiDB) GetConnectString() string {
@@ -26,7 +26,7 @@ func (t *TiDB) GetConnectString() string {
 
 func (t *TiDB) Connect() (err error) {
 	source := t.GetConnectString()
-	t.db, err = sqlx.Open("mysql", source)
+	t.db, err = sql.Open("mysql", source)
 	if err != nil {
 		logrus.Errorf("Failed to connect to TiDB: %v, sqlx.Open err: %v\n", source, err)
 	}
