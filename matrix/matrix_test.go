@@ -3,14 +3,16 @@ package matrix
 import (
 	"fmt"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 func Test_PermuatateMatrix(t *testing.T) {
-	matrix := make([][]interface{}, 5)
-	for i := 0; i < 5; i++ {
-		line := make([]interface{}, 10)
-		for j := 0; j < 10; j++ {
-			line[j] = fmt.Sprintf("%02d", i*10+j)
+	matrix := make([][]interface{}, 3)
+	for i := 0; i < 3; i++ {
+		line := make([]interface{}, 3)
+		for j := 0; j < 3; j++ {
+			line[j] = fmt.Sprintf("%d", i*3+j)
 		}
 		matrix[i] = line
 	}
@@ -30,6 +32,7 @@ func Test_PermuatateMatrix(t *testing.T) {
 		if v, ok := existMap[existKey]; ok {
 			t.Fatalf("Existed key: %v, count: %v,  current: %v", existKey, v, count)
 		}
+		logrus.Infof("iter.ID: %v, existKey: %v", iter.ID, existKey)
 		existMap[existKey] = count
 	}
 }

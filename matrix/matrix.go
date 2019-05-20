@@ -10,7 +10,10 @@ import (
 type PermutateMatrix struct {
 	iterSeqLength       int
 	idle                chan bool
-	iterChan            chan Iterator
+	DoneChan            chan bool
+	IterChan            chan Iterator
+	IterTotal           uint64
+	IterTotalChan       chan uint64
 	lineOrderPermutator *permutation.Permutator
 	Matrix              [][]interface{}
 }
@@ -55,13 +58,13 @@ func (iter Iterator) Iterate(pm *PermutateMatrix, iterSeq IterSeq) {
 }
 
 func NewIterator(iteratorID int, pm *PermutateMatrix, iterSeq IterSeq) Iterator {
+	pm.IterTotal++
 	iter := Iterator{
-		itemChan: make(chan IterItem, 1),
+		itemChan: make(chan IterItem),
 		ID:       iteratorID,
 	}
 	newIterSeq := make(IterSeq, len(iterSeq))
 	copy(newIterSeq, iterSeq)
-	// logrus.Infof("IteratorID: %v, iterSeq: %v", iteratorID, newIterSeq)
 	go iter.Iterate(pm, newIterSeq)
 	return iter
 }
@@ -83,10 +86,13 @@ func NewPermutateMatrix(matrix [][]interface{}) (*PermutateMatrix, error) {
 		logrus.Errorf("Failed to initialize line order permutator, err: %v", err)
 		return nil, err
 	}
-	pm.iterChan = make(chan Iterator, 1)
+	pm.IterChan = make(chan Iterator)
+	pm.IterTotalChan = make(chan uint64, 1)
 	go pm.iteratorGenerator()
+	pm.DoneChan = make(chan bool, 1)
 	pm.idle = make(chan bool, 1)
 	pm.idle <- true
+	go pm.Done()
 	return pm, nil
 }
 
@@ -138,7 +144,7 @@ func (pm *PermutateMatrix) iteratorGenerator() {
 	for lineOrder, err := pm.nextLineOrder(); lineOrder != nil && err == nil; lineOrder, err = pm.nextLineOrder() {
 		iterSeq := pm.newIterationSequence(lineOrder)
 		iter := NewIterator(iteratorID, pm, iterSeq)
-		pm.iterChan <- iter
+		pm.IterChan <- iter
 		iteratorID++
 	L:
 		for count := 1; count < pm.iterSeqLength; count++ {
@@ -151,7 +157,7 @@ func (pm *PermutateMatrix) iteratorGenerator() {
 					iterSeq[i-1], iterSeq[i] = iterSeq[i], iterSeq[i-1]
 					iter = NewIterator(iteratorID, pm, iterSeq)
 					iteratorID++
-					pm.iterChan <- iter
+					pm.IterChan <- iter
 					if (iterSeq[i-1].LineNum == iterSeq[0].LineNum) && (iterSeq[i-1].Index == i-1) {
 						break L
 					}
@@ -159,15 +165,31 @@ func (pm *PermutateMatrix) iteratorGenerator() {
 			}
 		}
 	}
-	close(pm.iterChan)
+	pm.IterTotalChan <- pm.IterTotal
 }
 
 func (pm *PermutateMatrix) NextIterator() (iter Iterator, err error) {
 	<-pm.idle
-	iter, ok := <-pm.iterChan
+	iter, ok := <-pm.IterChan
 	if !ok {
 		err = errors.New("No next iteration sequence")
 	}
 	pm.idle <- true
 	return
+}
+
+func (pm *PermutateMatrix) Done() {
+	var dealed uint64
+	var total uint64
+	for {
+		select {
+		case <-pm.DoneChan:
+			dealed++
+			if dealed == total {
+				close(pm.IterChan)
+				return
+			}
+		case total = <-pm.IterTotalChan:
+		}
+	}
 }
