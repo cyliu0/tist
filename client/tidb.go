@@ -15,12 +15,15 @@ type TiDB struct {
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	User     string `json:"user"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 	Database string `json:"database"`
 	db       *sql.DB
 }
 
 func (t *TiDB) GetConnectString() string {
+	if t.Password == "" {
+		return fmt.Sprintf("%s@tcp(%s:%d)/%s", t.User, t.Host, t.Port, t.Database)
+	}
 	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", t.User, t.Password, t.Host, t.Port, t.Database)
 }
 

@@ -149,16 +149,23 @@ func (pm *PermutateMatrix) iteratorGenerator() {
 	for lineOrder, err := pm.nextLineOrder(); lineOrder != nil && err == nil; lineOrder, err = pm.nextLineOrder() {
 		iterSeq := pm.newIterationSequence(lineOrder)
 		var endItem MatrixLocation
-		if pm.iterSeqLength > 2 {
+		if pm.iterSeqLength > 1 {
+			endItem = iterSeq[1]
 			if iterSeq[pm.iterSeqLength-1].LineNum != iterSeq[pm.iterSeqLength-2].LineNum {
+				// for [[1, 2], [3]], generate more than one iterator
+				if iterSeq[0].LineNum == iterSeq[pm.iterSeqLength-2].LineNum {
+					goto G
+				}
+				// for [[1, 2], [3], [4]], just generate one iterator
 				if iterSeq[pm.iterSeqLength-2].LineNum != iterSeq[pm.iterSeqLength-3].LineNum {
 					pm.sendIterator(iteratorID, iterSeq)
 					iteratorID++
 				}
+				// for [[3], [1, 2], [4]], do not generate iterator, this will be transformed by [[3], [4], [1], [2]]
 				continue
 			}
-			endItem = iterSeq[1]
 		}
+	G:
 		pm.sendIterator(iteratorID, iterSeq)
 		iteratorID++
 
