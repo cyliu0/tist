@@ -60,7 +60,7 @@ func (iter Iterator) Iterate(pm *PermutateMatrix, iterSeq IterSeq) {
 func NewIterator(iteratorID int, pm *PermutateMatrix, iterSeq IterSeq) Iterator {
 	pm.IterTotal++
 	iter := Iterator{
-		itemChan: make(chan IterItem),
+		itemChan: make(chan IterItem, 1),
 		ID:       iteratorID,
 	}
 	newIterSeq := make(IterSeq, len(iterSeq))
@@ -86,7 +86,7 @@ func NewPermutateMatrix(matrix [][]interface{}) (*PermutateMatrix, error) {
 		logrus.Errorf("Failed to initialize line order permutator, err: %v", err)
 		return nil, err
 	}
-	pm.IterChan = make(chan Iterator)
+	pm.IterChan = make(chan Iterator, 1)
 	pm.IterTotalChan = make(chan uint64, 1)
 	go pm.iteratorGenerator()
 	pm.DoneChan = make(chan bool, 1)
@@ -139,25 +139,41 @@ func (pm *PermutateMatrix) nextLineOrder() ([]int, error) {
 	return nil, errors.New("Empty line order")
 }
 
+func (pm *PermutateMatrix) sendIterator(iteratorID int, iterSeq IterSeq) {
+	iter := NewIterator(iteratorID, pm, iterSeq)
+	pm.IterChan <- iter
+}
+
 func (pm *PermutateMatrix) iteratorGenerator() {
 	iteratorID := 0
 	for lineOrder, err := pm.nextLineOrder(); lineOrder != nil && err == nil; lineOrder, err = pm.nextLineOrder() {
 		iterSeq := pm.newIterationSequence(lineOrder)
-		iter := NewIterator(iteratorID, pm, iterSeq)
-		pm.IterChan <- iter
+		var endItem MatrixLocation
+		if pm.iterSeqLength > 2 {
+			if iterSeq[pm.iterSeqLength-1].LineNum != iterSeq[pm.iterSeqLength-2].LineNum {
+				if iterSeq[pm.iterSeqLength-2].LineNum != iterSeq[pm.iterSeqLength-3].LineNum {
+					pm.sendIterator(iteratorID, iterSeq)
+					iteratorID++
+				}
+				continue
+			}
+			endItem = iterSeq[1]
+		}
+		pm.sendIterator(iteratorID, iterSeq)
 		iteratorID++
+
 	L:
 		for count := 1; count < pm.iterSeqLength; count++ {
 			moveIndex := iterSeq.GetMoveIndex()
-			if iterSeq[moveIndex].LineNum == iterSeq[0].LineNum {
+			if iterSeq[moveIndex].LineNum == endItem.LineNum &&
+				iterSeq[moveIndex].Index == endItem.Index {
 				break
 			}
 			for i := moveIndex; i >= 2; i-- {
 				if iterSeq[i].LineNum != iterSeq[i-1].LineNum {
 					iterSeq[i-1], iterSeq[i] = iterSeq[i], iterSeq[i-1]
-					iter = NewIterator(iteratorID, pm, iterSeq)
+					pm.sendIterator(iteratorID, iterSeq)
 					iteratorID++
-					pm.IterChan <- iter
 					if (iterSeq[i-1].LineNum == iterSeq[0].LineNum) && (iterSeq[i-1].Index == i-1) {
 						break L
 					}

@@ -1,3 +1,10 @@
 insert into interview.test (client_id, line_number) values(0, 1);
 insert into interview.test (client_id, line_number) values(0, 2);
 insert into interview.test (client_id, line_number) values(0, 3);
+insert into interview.test (client_id, line_number) values(0, 4);
+insert into interview.test (client_id, line_number) values(0, 5);
+insert into interview.test (client_id, line_number) values(0, 6);
+insert into interview.test (client_id, line_number) values(0, 7);
+insert into interview.test (client_id, line_number) values(0, 8);
+insert into interview.test (client_id, line_number) values(0, 9);
+insert into interview.test (client_id, line_number) values(0, 10);

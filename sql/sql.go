@@ -1,10 +1,8 @@
 package sql
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"os"
+	"io/ioutil"
 	"strings"
 
 	"github.com/cyliu0/tist/matrix"
@@ -13,18 +11,24 @@ import (
 
 type SQLMatrix struct {
 	*matrix.PermutateMatrix
+	SQLNum int
 }
 
-func NewSQLMatrix(sqlFilePrefix, sqlFilePostfix string, clientNumber int) (sqlMatrix *SQLMatrix, err error) {
+func NewSQLMatrix(sqlFilePrefix, sqlFileSuffix string, clientNumber int) (sqlMatrix *SQLMatrix, err error) {
 	sqlMatrix = &SQLMatrix{}
 	mtx := make([][]interface{}, clientNumber)
-	fileNames := getSQLFileNames(sqlFilePrefix, sqlFilePostfix, clientNumber)
+	fileNames := getSQLFileNames(sqlFilePrefix, sqlFileSuffix, clientNumber)
 	for i, fileName := range fileNames {
-		lines, err := readLines(fileName)
+		lines, err := readNonBlankLines(fileName)
 		if err != nil {
 			logrus.Fatalf("Failed to read lines from file: %v, err: %v", fileName, err)
 		}
-		sqlStrSlice := make([]interface{}, len(lines))
+		linesLen := len(lines)
+		if linesLen == 0 {
+			logrus.Fatalf("SQL file: %s is empty", fileName)
+		}
+		sqlMatrix.SQLNum = sqlMatrix.SQLNum + linesLen
+		sqlStrSlice := make([]interface{}, linesLen)
 		for j, sqlStr := range lines {
 			sqlStrSlice[j] = sqlStr
 		}
@@ -34,7 +38,14 @@ func NewSQLMatrix(sqlFilePrefix, sqlFilePostfix string, clientNumber int) (sqlMa
 	if err != nil {
 		logrus.Errorf("Failed to new permutate matrix, err: %v", err)
 	}
-	return sqlMatrix, err
+	return
+}
+
+func (sqlMatrix *SQLMatrix) Brief() {
+	for clientID, sqls := range sqlMatrix.Matrix {
+		logrus.Infof("ClientID: %d, SQL Num: %d", clientID, len(sqls))
+	}
+	logrus.Infof("Total SQL Num: %d", sqlMatrix.SQLNum)
 }
 
 func getSQLFileNames(sqlFilePrefix, sqlFilePostfix string, clientNumber int) []string {
@@ -45,26 +56,17 @@ func getSQLFileNames(sqlFilePrefix, sqlFilePostfix string, clientNumber int) []s
 	return fileNames
 }
 
-func readLines(fileName string) (lines []string, err error) {
-	lines = make([]string, 0)
-	f, err := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
+func readNonBlankLines(fileName string) ([]string, error) {
+	content, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		logrus.Errorf("open file error: %v", err)
-		return
+		return nil, err
 	}
-	defer f.Close()
-	rd := bufio.NewReader(f)
-	for {
-		line, err := rd.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			logrus.Errorf("read file line error: %v", err)
-			return nil, err
+	lines := make([]string, 0)
+	for _, line := range strings.Split(string(content), "\n") {
+		if line != "" {
+			lines = append(lines, line)
 		}
-		line = strings.TrimRight(line, "\n")
-		lines = append(lines, line)
 	}
-	return
+	return lines, nil
 }

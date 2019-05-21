@@ -15,6 +15,7 @@ func (c Client) Exec(tidbID int, execStr string) (err error) {
 	if err != nil {
 		logrus.Errorf("Failed to exec sql: %s, TiDB: %v", execStr, c.TiDBs[tidbID])
 	}
+	//logrus.Debugf("Exec SQL: %s on TiDB: %d", execStr, tidbID)
 	return
 }
 
